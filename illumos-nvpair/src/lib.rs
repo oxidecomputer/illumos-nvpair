@@ -8,10 +8,10 @@
 //! # Example
 //!
 //! ```ignore
-//! use nvpair::{NvList, NvValue};
+//! use illumos_nvpair::{NvList, NvValue};
 //!
 //! // Given a raw nvlist pointer from some illumos API:
-//! let nvl: NvList = unsafe { nvpair::nvlist_to_rust(raw_ptr) };
+//! let nvl: NvList = unsafe { illumos_nvpair::nvlist_to_rust(raw_ptr) };
 //!
 //! if let Some(NvValue::String(s)) = nvl.lookup("name") {
 //!     println!("name = {s}");
@@ -21,7 +21,7 @@
 use std::ffi::CStr;
 use std::os::raw::c_char;
 
-use nvpair_sys::{
+use illumos_nvpair_sys::{
     data_type_t, data_type_t_DATA_TYPE_BOOLEAN,
     data_type_t_DATA_TYPE_BOOLEAN_ARRAY, data_type_t_DATA_TYPE_BOOLEAN_VALUE,
     data_type_t_DATA_TYPE_BYTE, data_type_t_DATA_TYPE_BYTE_ARRAY,
@@ -140,12 +140,12 @@ unsafe fn read_pair_value(
     match dtype {
         data_type_t_DATA_TYPE_BOOLEAN => NvValue::Boolean,
         data_type_t_DATA_TYPE_BOOLEAN_VALUE => {
-            let mut v: nvpair_sys::boolean_t = 0;
+            let mut v: illumos_nvpair_sys::boolean_t = 0;
             nvpair_value_boolean_value(nvp, &mut v);
             NvValue::BooleanValue(v != 0)
         }
         data_type_t_DATA_TYPE_BYTE => {
-            let mut v: nvpair_sys::uchar_t = 0;
+            let mut v: illumos_nvpair_sys::uchar_t = 0;
             nvpair_value_byte(nvp, &mut v);
             NvValue::Byte(v)
         }
@@ -201,7 +201,7 @@ unsafe fn read_pair_value(
             NvValue::String(s)
         }
         data_type_t_DATA_TYPE_HRTIME => {
-            let mut v: nvpair_sys::hrtime_t = 0;
+            let mut v: illumos_nvpair_sys::hrtime_t = 0;
             nvpair_value_hrtime(nvp, &mut v);
             NvValue::Hrtime(v)
         }
@@ -211,14 +211,14 @@ unsafe fn read_pair_value(
             NvValue::NvList(nvlist_to_rust(p))
         }
         data_type_t_DATA_TYPE_BOOLEAN_ARRAY => {
-            let mut p: *mut nvpair_sys::boolean_t = std::ptr::null_mut();
+            let mut p: *mut illumos_nvpair_sys::boolean_t = std::ptr::null_mut();
             let mut n: uint_t = 0;
             nvpair_value_boolean_array(nvp, &mut p, &mut n);
             let slice = std::slice::from_raw_parts(p, n as usize);
             NvValue::BooleanArray(slice.iter().map(|&v| v != 0).collect())
         }
         data_type_t_DATA_TYPE_BYTE_ARRAY => {
-            let mut p: *mut nvpair_sys::uchar_t = std::ptr::null_mut();
+            let mut p: *mut illumos_nvpair_sys::uchar_t = std::ptr::null_mut();
             let mut n: uint_t = 0;
             nvpair_value_byte_array(nvp, &mut p, &mut n);
             let slice = std::slice::from_raw_parts(p, n as usize);
@@ -308,7 +308,7 @@ unsafe fn read_pair_value(
 mod tests {
     use super::*;
     use std::ffi::CString;
-    use nvpair_sys::{
+    use illumos_nvpair_sys::{
         boolean_t, nvlist_add_boolean, nvlist_add_boolean_array,
         nvlist_add_boolean_value, nvlist_add_byte, nvlist_add_byte_array,
         nvlist_add_double, nvlist_add_hrtime, nvlist_add_int8,

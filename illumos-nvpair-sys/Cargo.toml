@@ -1,5 +1,5 @@
 [package]
-name = "nvpair-sys"
+name = "illumos-nvpair-sys"
 version = "0.1.0"
 edition = "2021"
 description = "Raw FFI bindings to illumos libnvpair"

@@ -1,4 +1,4 @@
-# nvpair
+# illumos-nvpair
 
 Idiomatic Rust wrapper around illumos
 [libnvpair](https://illumos.org/man/3LIB/libnvpair). Converts raw

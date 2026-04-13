@@ -1,4 +1,4 @@
-# nvpair-sys
+# illumos-nvpair-sys
 
 Raw Rust FFI bindings to illumos
 [libnvpair](https://illumos.org/man/3LIB/libnvpair), generated from the

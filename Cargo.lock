@@ -3,12 +3,12 @@
 version = 4
 
 [[package]]
-name = "nvpair"
+name = "illumos-nvpair"
 version = "0.1.0"
 dependencies = [
- "nvpair-sys",
+ "illumos-nvpair-sys",
 ]
 
 [[package]]
-name = "nvpair-sys"
+name = "illumos-nvpair-sys"
 version = "0.1.0"
