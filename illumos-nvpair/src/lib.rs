@@ -11,7 +11,7 @@
 //! use illumos_nvpair::{NvList, NvValue};
 //!
 //! // Given a raw nvlist pointer from some illumos API:
-//! let nvl: NvList = unsafe { illumos_nvpair::nvlist_to_rust(raw_ptr) }?;
+//! let nvl = unsafe { NvList::from_raw(raw_ptr) }?;
 //!
 //! if let Some(NvValue::String(s)) = nvl.lookup("name") {
 //!     println!("name = {s}");
@@ -103,6 +103,41 @@ pub struct NvList {
 }
 
 impl NvList {
+    /// Convert a raw `nvlist_t *` into an owned [`NvList`].
+    ///
+    /// Pair names and string values are converted from C strings using
+    /// lossy UTF-8 conversion: any bytes that are not valid UTF-8 are
+    /// replaced with U+FFFD (`\u{FFFD}`). This means a `lookup()` call
+    /// will not match the original name if it contained non-UTF-8 bytes.
+    ///
+    /// # Safety
+    ///
+    /// `nvl` must be a valid, non-null pointer to an nvlist. The nvlist is
+    /// borrowed - the caller retains ownership and is responsible for
+    /// freeing it.
+    pub unsafe fn from_raw(nvl: *mut nvlist_t) -> Result<NvList, NvError> {
+        let mut pairs = Vec::new();
+        let mut nvp: *mut nvpair_t = std::ptr::null_mut();
+
+        loop {
+            nvp = unsafe { nvlist_next_nvpair(nvl, nvp) };
+            if nvp.is_null() {
+                break;
+            }
+
+            let name_ptr = unsafe { nvpair_name(nvp) };
+            if name_ptr.is_null() {
+                return Err(NvError::NullName);
+            }
+            let name = unsafe { CStr::from_ptr(name_ptr).to_string_lossy().into_owned() };
+            let dtype = unsafe { nvpair_type(nvp) };
+            let value = unsafe { read_pair_value(nvp, &name, dtype)? };
+            pairs.push((name, value));
+        }
+
+        Ok(NvList { pairs })
+    }
+
     /// Look up a value by name.
     pub fn lookup(&self, name: &str) -> Option<&NvValue> {
         self.pairs.iter().find(|(n, _)| n == name).map(|(_, v)| v)
@@ -184,40 +219,6 @@ pub enum NvValue {
     },
 }
 
-/// Convert a raw `nvlist_t *` into an owned [`NvList`].
-///
-/// Pair names and string values are converted from C strings using
-/// lossy UTF-8 conversion: any bytes that are not valid UTF-8 are
-/// replaced with U+FFFD (`\u{FFFD}`). This means a `lookup()` call
-/// will not match the original name if it contained non-UTF-8 bytes.
-///
-/// # Safety
-///
-/// `nvl` must be a valid, non-null pointer to an nvlist. The nvlist is
-/// borrowed - the caller retains ownership and is responsible for
-/// freeing it.
-pub unsafe fn nvlist_to_rust(nvl: *mut nvlist_t) -> Result<NvList, NvError> {
-    let mut pairs = Vec::new();
-    let mut nvp: *mut nvpair_t = std::ptr::null_mut();
-
-    loop {
-        nvp = unsafe { nvlist_next_nvpair(nvl, nvp) };
-        if nvp.is_null() {
-            break;
-        }
-
-        let name_ptr = unsafe { nvpair_name(nvp) };
-        if name_ptr.is_null() {
-            return Err(NvError::NullName);
-        }
-        let name = unsafe { CStr::from_ptr(name_ptr).to_string_lossy().into_owned() };
-        let dtype = unsafe { nvpair_type(nvp) };
-        let value = unsafe { read_pair_value(nvp, &name, dtype)? };
-        pairs.push((name, value));
-    }
-
-    Ok(NvList { pairs })
-}
 
 /// Check a return code from a `nvpair_value_*` call, converting
 /// non-zero into an `NvError`.
@@ -352,7 +353,7 @@ unsafe fn read_pair_value(
                         type_code: dtype,
                     });
                 }
-                Ok(NvValue::NvList(nvlist_to_rust(p)?))
+                Ok(NvValue::NvList(NvList::from_raw(p)?))
             }
             data_type_t_DATA_TYPE_BOOLEAN_ARRAY => {
                 let mut p: *mut illumos_nvpair_sys::boolean_t = std::ptr::null_mut();
@@ -493,7 +494,7 @@ unsafe fn read_pair_value(
                             type_code: dtype,
                         });
                     }
-                    lists.push(nvlist_to_rust(nvl)?);
+                    lists.push(NvList::from_raw(nvl)?);
                 }
                 Ok(NvValue::NvListArray(lists))
             }
@@ -532,7 +533,7 @@ mod tests {
         }
 
         fn to_rust(&self) -> NvList {
-            unsafe { nvlist_to_rust(self.ptr) }.expect("nvlist_to_rust failed")
+            unsafe { NvList::from_raw(self.ptr) }.expect("nvlist_to_rust failed")
         }
 
         fn add_boolean(&self, name: &str) -> &Self {

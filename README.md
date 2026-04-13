@@ -20,7 +20,7 @@ These crates target illumos only and link against the system `libnvpair`.
 use illumos_nvpair::{NvList, NvValue};
 
 // Given a raw nvlist pointer from some illumos API:
-let nvl: NvList = unsafe { illumos_nvpair::nvlist_to_rust(raw_ptr) };
+let nvl = unsafe { NvList::from_raw(raw_ptr) }?;
 
 if let Some(NvValue::String(s)) = nvl.lookup("name") {
     println!("name = {s}");
