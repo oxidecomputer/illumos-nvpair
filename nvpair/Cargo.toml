@@ -1,0 +1,9 @@
+[package]
+name = "nvpair"
+version = "0.1.0"
+edition = "2021"
+description = "Idiomatic Rust bindings for illumos libnvpair"
+license = "MPL-2.0"
+
+[dependencies]
+nvpair-sys = { path = "../nvpair-sys" }
