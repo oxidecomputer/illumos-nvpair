@@ -4,11 +4,11 @@ version = 4
 
 [[package]]
 name = "illumos-nvpair"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "illumos-nvpair-sys",
 ]
 
 [[package]]
 name = "illumos-nvpair-sys"
-version = "0.1.0"
+version = "0.2.0"

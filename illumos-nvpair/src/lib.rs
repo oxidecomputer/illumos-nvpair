@@ -23,36 +23,30 @@ use std::fmt;
 use std::os::raw::c_char;
 
 use illumos_nvpair_sys::{
-    data_type_t, data_type_t_DATA_TYPE_BOOLEAN,
-    data_type_t_DATA_TYPE_BOOLEAN_ARRAY, data_type_t_DATA_TYPE_BOOLEAN_VALUE,
-    data_type_t_DATA_TYPE_BYTE, data_type_t_DATA_TYPE_BYTE_ARRAY,
-    data_type_t_DATA_TYPE_DOUBLE, data_type_t_DATA_TYPE_HRTIME,
-    data_type_t_DATA_TYPE_INT16, data_type_t_DATA_TYPE_INT16_ARRAY,
-    data_type_t_DATA_TYPE_INT32, data_type_t_DATA_TYPE_INT32_ARRAY,
-    data_type_t_DATA_TYPE_INT64, data_type_t_DATA_TYPE_INT64_ARRAY,
-    data_type_t_DATA_TYPE_INT8, data_type_t_DATA_TYPE_INT8_ARRAY,
-    data_type_t_DATA_TYPE_NVLIST, data_type_t_DATA_TYPE_NVLIST_ARRAY,
-    data_type_t_DATA_TYPE_STRING, data_type_t_DATA_TYPE_STRING_ARRAY,
-    data_type_t_DATA_TYPE_UINT16, data_type_t_DATA_TYPE_UINT16_ARRAY,
-    data_type_t_DATA_TYPE_UINT32, data_type_t_DATA_TYPE_UINT32_ARRAY,
-    data_type_t_DATA_TYPE_UINT64, data_type_t_DATA_TYPE_UINT64_ARRAY,
-    data_type_t_DATA_TYPE_UINT8, data_type_t_DATA_TYPE_UINT8_ARRAY,
-    nvlist_next_nvpair, nvlist_t, nvpair_name, nvpair_t, nvpair_type,
-    nvpair_value_boolean_array, nvpair_value_boolean_value,
-    nvpair_value_byte, nvpair_value_byte_array, nvpair_value_double,
-    nvpair_value_hrtime, nvpair_value_int16, nvpair_value_int16_array,
-    nvpair_value_int32, nvpair_value_int32_array, nvpair_value_int64,
-    nvpair_value_int64_array, nvpair_value_int8, nvpair_value_int8_array,
-    nvpair_value_nvlist, nvpair_value_nvlist_array, nvpair_value_string,
-    nvpair_value_string_array, nvpair_value_uint16,
-    nvpair_value_uint16_array, nvpair_value_uint32,
-    nvpair_value_uint32_array, nvpair_value_uint64,
-    nvpair_value_uint64_array, nvpair_value_uint8,
-    nvpair_value_uint8_array, uint_t,
+    data_type_t, data_type_t_DATA_TYPE_BOOLEAN, data_type_t_DATA_TYPE_BOOLEAN_ARRAY,
+    data_type_t_DATA_TYPE_BOOLEAN_VALUE, data_type_t_DATA_TYPE_BYTE,
+    data_type_t_DATA_TYPE_BYTE_ARRAY, data_type_t_DATA_TYPE_DOUBLE, data_type_t_DATA_TYPE_HRTIME,
+    data_type_t_DATA_TYPE_INT8, data_type_t_DATA_TYPE_INT8_ARRAY, data_type_t_DATA_TYPE_INT16,
+    data_type_t_DATA_TYPE_INT16_ARRAY, data_type_t_DATA_TYPE_INT32,
+    data_type_t_DATA_TYPE_INT32_ARRAY, data_type_t_DATA_TYPE_INT64,
+    data_type_t_DATA_TYPE_INT64_ARRAY, data_type_t_DATA_TYPE_NVLIST,
+    data_type_t_DATA_TYPE_NVLIST_ARRAY, data_type_t_DATA_TYPE_STRING,
+    data_type_t_DATA_TYPE_STRING_ARRAY, data_type_t_DATA_TYPE_UINT8,
+    data_type_t_DATA_TYPE_UINT8_ARRAY, data_type_t_DATA_TYPE_UINT16,
+    data_type_t_DATA_TYPE_UINT16_ARRAY, data_type_t_DATA_TYPE_UINT32,
+    data_type_t_DATA_TYPE_UINT32_ARRAY, data_type_t_DATA_TYPE_UINT64,
+    data_type_t_DATA_TYPE_UINT64_ARRAY, nvlist_next_nvpair, nvlist_t, nvpair_name, nvpair_t,
+    nvpair_type, nvpair_value_boolean_array, nvpair_value_boolean_value, nvpair_value_byte,
+    nvpair_value_byte_array, nvpair_value_double, nvpair_value_hrtime, nvpair_value_int8,
+    nvpair_value_int8_array, nvpair_value_int16, nvpair_value_int16_array, nvpair_value_int32,
+    nvpair_value_int32_array, nvpair_value_int64, nvpair_value_int64_array, nvpair_value_nvlist,
+    nvpair_value_nvlist_array, nvpair_value_string, nvpair_value_string_array, nvpair_value_uint8,
+    nvpair_value_uint8_array, nvpair_value_uint16, nvpair_value_uint16_array, nvpair_value_uint32,
+    nvpair_value_uint32_array, nvpair_value_uint64, nvpair_value_uint64_array, uint_t,
 };
 
 /// Error returned when reading an nvpair value fails.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum NvError {
     /// A `nvpair_value_*` C function returned a non-zero error code.
     ValueReadFailed {
@@ -65,24 +59,36 @@ pub enum NvError {
         pair_name: String,
         type_code: data_type_t,
     },
+    /// `nvpair_name` returned a null pointer for a pair.
+    NullName,
 }
 
 impl fmt::Display for NvError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NvError::ValueReadFailed { pair_name, type_code, errno } => {
+            NvError::ValueReadFailed {
+                pair_name,
+                type_code,
+                errno,
+            } => {
                 write!(
                     f,
                     "nvpair_value failed for pair {:?} (type {type_code}): errno {errno}",
                     pair_name,
                 )
             }
-            NvError::NullPointer { pair_name, type_code } => {
+            NvError::NullPointer {
+                pair_name,
+                type_code,
+            } => {
                 write!(
                     f,
                     "nvpair_value returned null for pair {:?} (type {type_code})",
                     pair_name,
                 )
+            }
+            NvError::NullName => {
+                write!(f, "nvpair_name returned null")
             }
         }
     }
@@ -99,10 +105,7 @@ pub struct NvList {
 impl NvList {
     /// Look up a value by name.
     pub fn lookup(&self, name: &str) -> Option<&NvValue> {
-        self.pairs
-            .iter()
-            .find(|(n, _)| n == name)
-            .map(|(_, v)| v)
+        self.pairs.iter().find(|(n, _)| n == name).map(|(_, v)| v)
     }
 
     /// Returns an iterator over the name-value pairs.
@@ -127,6 +130,18 @@ impl IntoIterator for NvList {
 
     fn into_iter(self) -> Self::IntoIter {
         self.pairs.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a NvList {
+    type Item = (&'a str, &'a NvValue);
+    type IntoIter = std::iter::Map<
+        std::slice::Iter<'a, (String, NvValue)>,
+        fn(&'a (String, NvValue)) -> (&'a str, &'a NvValue),
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.pairs.iter().map(|(n, v)| (n.as_str(), v))
     }
 }
 
@@ -164,10 +179,17 @@ pub enum NvValue {
     StringArray(Vec<String>),
     NvListArray(Vec<NvList>),
     /// A type not recognized by this crate.
-    Unknown { type_code: data_type_t },
+    Unknown {
+        type_code: data_type_t,
+    },
 }
 
 /// Convert a raw `nvlist_t *` into an owned [`NvList`].
+///
+/// Pair names and string values are converted from C strings using
+/// lossy UTF-8 conversion: any bytes that are not valid UTF-8 are
+/// replaced with U+FFFD (`\u{FFFD}`). This means a `lookup()` call
+/// will not match the original name if it contained non-UTF-8 bytes.
 ///
 /// # Safety
 ///
@@ -186,15 +208,9 @@ pub unsafe fn nvlist_to_rust(nvl: *mut nvlist_t) -> Result<NvList, NvError> {
 
         let name_ptr = unsafe { nvpair_name(nvp) };
         if name_ptr.is_null() {
-            // nvpair_name should never return null for a valid
-            // nvpair, but guard against it to avoid UB.
-            continue;
+            return Err(NvError::NullName);
         }
-        let name = unsafe {
-            CStr::from_ptr(name_ptr)
-                .to_string_lossy()
-                .into_owned()
-        };
+        let name = unsafe { CStr::from_ptr(name_ptr).to_string_lossy().into_owned() };
         let dtype = unsafe { nvpair_type(nvp) };
         let value = unsafe { read_pair_value(nvp, &name, dtype)? };
         pairs.push((name, value));
@@ -231,225 +247,275 @@ unsafe fn array_to_vec<T: Clone>(
     n: uint_t,
     pair_name: &str,
     type_code: data_type_t,
-) -> Result<Vec<T>, NvError> { unsafe {
-    let len = n as usize;
-    if len == 0 {
-        return Ok(Vec::new());
+) -> Result<Vec<T>, NvError> {
+    unsafe {
+        let len = n as usize;
+        if len == 0 {
+            return Ok(Vec::new());
+        }
+        if p.is_null() {
+            return Err(NvError::NullPointer {
+                pair_name: pair_name.to_owned(),
+                type_code,
+            });
+        }
+        Ok(std::slice::from_raw_parts(p, len).to_vec())
     }
-    if p.is_null() {
-        return Err(NvError::NullPointer {
-            pair_name: pair_name.to_owned(),
-            type_code,
-        });
-    }
-    Ok(std::slice::from_raw_parts(p, len).to_vec())
-}}
+}
 
 unsafe fn read_pair_value(
     nvp: *mut nvpair_t,
     pair_name: &str,
     dtype: data_type_t,
-) -> Result<NvValue, NvError> { unsafe {
-    match dtype {
-        data_type_t_DATA_TYPE_BOOLEAN => Ok(NvValue::Boolean),
-        data_type_t_DATA_TYPE_BOOLEAN_VALUE => {
-            let mut v: illumos_nvpair_sys::boolean_t = 0;
-            check_rc(nvpair_value_boolean_value(nvp, &mut v), pair_name, dtype)?;
-            Ok(NvValue::BooleanValue(v != 0))
-        }
-        data_type_t_DATA_TYPE_BYTE => {
-            let mut v: illumos_nvpair_sys::uchar_t = 0;
-            check_rc(nvpair_value_byte(nvp, &mut v), pair_name, dtype)?;
-            Ok(NvValue::Byte(v))
-        }
-        data_type_t_DATA_TYPE_INT8 => {
-            let mut v: i8 = 0;
-            check_rc(nvpair_value_int8(nvp, &mut v), pair_name, dtype)?;
-            Ok(NvValue::Int8(v))
-        }
-        data_type_t_DATA_TYPE_UINT8 => {
-            let mut v: u8 = 0;
-            check_rc(nvpair_value_uint8(nvp, &mut v), pair_name, dtype)?;
-            Ok(NvValue::UInt8(v))
-        }
-        data_type_t_DATA_TYPE_INT16 => {
-            let mut v: i16 = 0;
-            check_rc(nvpair_value_int16(nvp, &mut v), pair_name, dtype)?;
-            Ok(NvValue::Int16(v))
-        }
-        data_type_t_DATA_TYPE_UINT16 => {
-            let mut v: u16 = 0;
-            check_rc(nvpair_value_uint16(nvp, &mut v), pair_name, dtype)?;
-            Ok(NvValue::UInt16(v))
-        }
-        data_type_t_DATA_TYPE_INT32 => {
-            let mut v: i32 = 0;
-            check_rc(nvpair_value_int32(nvp, &mut v), pair_name, dtype)?;
-            Ok(NvValue::Int32(v))
-        }
-        data_type_t_DATA_TYPE_UINT32 => {
-            let mut v: u32 = 0;
-            check_rc(nvpair_value_uint32(nvp, &mut v), pair_name, dtype)?;
-            Ok(NvValue::UInt32(v))
-        }
-        data_type_t_DATA_TYPE_INT64 => {
-            let mut v: i64 = 0;
-            check_rc(nvpair_value_int64(nvp, &mut v), pair_name, dtype)?;
-            Ok(NvValue::Int64(v))
-        }
-        data_type_t_DATA_TYPE_UINT64 => {
-            let mut v: u64 = 0;
-            check_rc(nvpair_value_uint64(nvp, &mut v), pair_name, dtype)?;
-            Ok(NvValue::UInt64(v))
-        }
-        data_type_t_DATA_TYPE_DOUBLE => {
-            let mut v: f64 = 0.0;
-            check_rc(nvpair_value_double(nvp, &mut v), pair_name, dtype)?;
-            Ok(NvValue::Double(v))
-        }
-        data_type_t_DATA_TYPE_STRING => {
-            let mut p: *mut c_char = std::ptr::null_mut();
-            check_rc(nvpair_value_string(nvp, &mut p), pair_name, dtype)?;
-            if p.is_null() {
-                return Err(NvError::NullPointer {
-                    pair_name: pair_name.to_owned(),
-                    type_code: dtype,
-                });
+) -> Result<NvValue, NvError> {
+    unsafe {
+        match dtype {
+            data_type_t_DATA_TYPE_BOOLEAN => Ok(NvValue::Boolean),
+            data_type_t_DATA_TYPE_BOOLEAN_VALUE => {
+                let mut v: illumos_nvpair_sys::boolean_t = 0;
+                check_rc(nvpair_value_boolean_value(nvp, &mut v), pair_name, dtype)?;
+                Ok(NvValue::BooleanValue(v != 0))
             }
-            let s = CStr::from_ptr(p).to_string_lossy().into_owned();
-            Ok(NvValue::String(s))
-        }
-        data_type_t_DATA_TYPE_HRTIME => {
-            let mut v: illumos_nvpair_sys::hrtime_t = 0;
-            check_rc(nvpair_value_hrtime(nvp, &mut v), pair_name, dtype)?;
-            Ok(NvValue::Hrtime(v))
-        }
-        data_type_t_DATA_TYPE_NVLIST => {
-            let mut p: *mut nvlist_t = std::ptr::null_mut();
-            check_rc(nvpair_value_nvlist(nvp, &mut p), pair_name, dtype)?;
-            if p.is_null() {
-                return Err(NvError::NullPointer {
-                    pair_name: pair_name.to_owned(),
-                    type_code: dtype,
-                });
+            data_type_t_DATA_TYPE_BYTE => {
+                let mut v: illumos_nvpair_sys::uchar_t = 0;
+                check_rc(nvpair_value_byte(nvp, &mut v), pair_name, dtype)?;
+                Ok(NvValue::Byte(v))
             }
-            Ok(NvValue::NvList(nvlist_to_rust(p)?))
-        }
-        data_type_t_DATA_TYPE_BOOLEAN_ARRAY => {
-            let mut p: *mut illumos_nvpair_sys::boolean_t = std::ptr::null_mut();
-            let mut n: uint_t = 0;
-            check_rc(nvpair_value_boolean_array(nvp, &mut p, &mut n), pair_name, dtype)?;
-            let raw = array_to_vec(p, n, pair_name, dtype)?;
-            Ok(NvValue::BooleanArray(raw.iter().map(|&v| v != 0).collect()))
-        }
-        data_type_t_DATA_TYPE_BYTE_ARRAY => {
-            let mut p: *mut illumos_nvpair_sys::uchar_t = std::ptr::null_mut();
-            let mut n: uint_t = 0;
-            check_rc(nvpair_value_byte_array(nvp, &mut p, &mut n), pair_name, dtype)?;
-            Ok(NvValue::ByteArray(array_to_vec(p, n, pair_name, dtype)?))
-        }
-        data_type_t_DATA_TYPE_INT8_ARRAY => {
-            let mut p: *mut i8 = std::ptr::null_mut();
-            let mut n: uint_t = 0;
-            check_rc(nvpair_value_int8_array(nvp, &mut p, &mut n), pair_name, dtype)?;
-            Ok(NvValue::Int8Array(array_to_vec(p, n, pair_name, dtype)?))
-        }
-        data_type_t_DATA_TYPE_UINT8_ARRAY => {
-            let mut p: *mut u8 = std::ptr::null_mut();
-            let mut n: uint_t = 0;
-            check_rc(nvpair_value_uint8_array(nvp, &mut p, &mut n), pair_name, dtype)?;
-            Ok(NvValue::UInt8Array(array_to_vec(p, n, pair_name, dtype)?))
-        }
-        data_type_t_DATA_TYPE_INT16_ARRAY => {
-            let mut p: *mut i16 = std::ptr::null_mut();
-            let mut n: uint_t = 0;
-            check_rc(nvpair_value_int16_array(nvp, &mut p, &mut n), pair_name, dtype)?;
-            Ok(NvValue::Int16Array(array_to_vec(p, n, pair_name, dtype)?))
-        }
-        data_type_t_DATA_TYPE_UINT16_ARRAY => {
-            let mut p: *mut u16 = std::ptr::null_mut();
-            let mut n: uint_t = 0;
-            check_rc(nvpair_value_uint16_array(nvp, &mut p, &mut n), pair_name, dtype)?;
-            Ok(NvValue::UInt16Array(array_to_vec(p, n, pair_name, dtype)?))
-        }
-        data_type_t_DATA_TYPE_INT32_ARRAY => {
-            let mut p: *mut i32 = std::ptr::null_mut();
-            let mut n: uint_t = 0;
-            check_rc(nvpair_value_int32_array(nvp, &mut p, &mut n), pair_name, dtype)?;
-            Ok(NvValue::Int32Array(array_to_vec(p, n, pair_name, dtype)?))
-        }
-        data_type_t_DATA_TYPE_UINT32_ARRAY => {
-            let mut p: *mut u32 = std::ptr::null_mut();
-            let mut n: uint_t = 0;
-            check_rc(nvpair_value_uint32_array(nvp, &mut p, &mut n), pair_name, dtype)?;
-            Ok(NvValue::UInt32Array(array_to_vec(p, n, pair_name, dtype)?))
-        }
-        data_type_t_DATA_TYPE_INT64_ARRAY => {
-            let mut p: *mut i64 = std::ptr::null_mut();
-            let mut n: uint_t = 0;
-            check_rc(nvpair_value_int64_array(nvp, &mut p, &mut n), pair_name, dtype)?;
-            Ok(NvValue::Int64Array(array_to_vec(p, n, pair_name, dtype)?))
-        }
-        data_type_t_DATA_TYPE_UINT64_ARRAY => {
-            let mut p: *mut u64 = std::ptr::null_mut();
-            let mut n: uint_t = 0;
-            check_rc(nvpair_value_uint64_array(nvp, &mut p, &mut n), pair_name, dtype)?;
-            Ok(NvValue::UInt64Array(array_to_vec(p, n, pair_name, dtype)?))
-        }
-        data_type_t_DATA_TYPE_STRING_ARRAY => {
-            let mut p: *mut *mut c_char = std::ptr::null_mut();
-            let mut n: uint_t = 0;
-            check_rc(nvpair_value_string_array(nvp, &mut p, &mut n), pair_name, dtype)?;
-            let ptrs = array_to_vec(p as *const *mut c_char, n, pair_name, dtype)?;
-            let mut strings = Vec::with_capacity(ptrs.len());
-            for &s in &ptrs {
-                if s.is_null() {
+            data_type_t_DATA_TYPE_INT8 => {
+                let mut v: i8 = 0;
+                check_rc(nvpair_value_int8(nvp, &mut v), pair_name, dtype)?;
+                Ok(NvValue::Int8(v))
+            }
+            data_type_t_DATA_TYPE_UINT8 => {
+                let mut v: u8 = 0;
+                check_rc(nvpair_value_uint8(nvp, &mut v), pair_name, dtype)?;
+                Ok(NvValue::UInt8(v))
+            }
+            data_type_t_DATA_TYPE_INT16 => {
+                let mut v: i16 = 0;
+                check_rc(nvpair_value_int16(nvp, &mut v), pair_name, dtype)?;
+                Ok(NvValue::Int16(v))
+            }
+            data_type_t_DATA_TYPE_UINT16 => {
+                let mut v: u16 = 0;
+                check_rc(nvpair_value_uint16(nvp, &mut v), pair_name, dtype)?;
+                Ok(NvValue::UInt16(v))
+            }
+            data_type_t_DATA_TYPE_INT32 => {
+                let mut v: i32 = 0;
+                check_rc(nvpair_value_int32(nvp, &mut v), pair_name, dtype)?;
+                Ok(NvValue::Int32(v))
+            }
+            data_type_t_DATA_TYPE_UINT32 => {
+                let mut v: u32 = 0;
+                check_rc(nvpair_value_uint32(nvp, &mut v), pair_name, dtype)?;
+                Ok(NvValue::UInt32(v))
+            }
+            data_type_t_DATA_TYPE_INT64 => {
+                let mut v: i64 = 0;
+                check_rc(nvpair_value_int64(nvp, &mut v), pair_name, dtype)?;
+                Ok(NvValue::Int64(v))
+            }
+            data_type_t_DATA_TYPE_UINT64 => {
+                let mut v: u64 = 0;
+                check_rc(nvpair_value_uint64(nvp, &mut v), pair_name, dtype)?;
+                Ok(NvValue::UInt64(v))
+            }
+            data_type_t_DATA_TYPE_DOUBLE => {
+                let mut v: f64 = 0.0;
+                check_rc(nvpair_value_double(nvp, &mut v), pair_name, dtype)?;
+                Ok(NvValue::Double(v))
+            }
+            data_type_t_DATA_TYPE_STRING => {
+                let mut p: *mut c_char = std::ptr::null_mut();
+                check_rc(nvpair_value_string(nvp, &mut p), pair_name, dtype)?;
+                if p.is_null() {
                     return Err(NvError::NullPointer {
                         pair_name: pair_name.to_owned(),
                         type_code: dtype,
                     });
                 }
-                strings.push(CStr::from_ptr(s).to_string_lossy().into_owned());
+                let s = CStr::from_ptr(p).to_string_lossy().into_owned();
+                Ok(NvValue::String(s))
             }
-            Ok(NvValue::StringArray(strings))
-        }
-        data_type_t_DATA_TYPE_NVLIST_ARRAY => {
-            let mut p: *mut *mut nvlist_t = std::ptr::null_mut();
-            let mut n: uint_t = 0;
-            check_rc(nvpair_value_nvlist_array(nvp, &mut p, &mut n), pair_name, dtype)?;
-            let ptrs = array_to_vec(p as *const *mut nvlist_t, n, pair_name, dtype)?;
-            let mut lists = Vec::with_capacity(ptrs.len());
-            for &nvl in &ptrs {
-                if nvl.is_null() {
+            data_type_t_DATA_TYPE_HRTIME => {
+                let mut v: illumos_nvpair_sys::hrtime_t = 0;
+                check_rc(nvpair_value_hrtime(nvp, &mut v), pair_name, dtype)?;
+                Ok(NvValue::Hrtime(v))
+            }
+            data_type_t_DATA_TYPE_NVLIST => {
+                let mut p: *mut nvlist_t = std::ptr::null_mut();
+                check_rc(nvpair_value_nvlist(nvp, &mut p), pair_name, dtype)?;
+                if p.is_null() {
                     return Err(NvError::NullPointer {
                         pair_name: pair_name.to_owned(),
                         type_code: dtype,
                     });
                 }
-                lists.push(nvlist_to_rust(nvl)?);
+                Ok(NvValue::NvList(nvlist_to_rust(p)?))
             }
-            Ok(NvValue::NvListArray(lists))
+            data_type_t_DATA_TYPE_BOOLEAN_ARRAY => {
+                let mut p: *mut illumos_nvpair_sys::boolean_t = std::ptr::null_mut();
+                let mut n: uint_t = 0;
+                check_rc(
+                    nvpair_value_boolean_array(nvp, &mut p, &mut n),
+                    pair_name,
+                    dtype,
+                )?;
+                let raw = array_to_vec(p, n, pair_name, dtype)?;
+                Ok(NvValue::BooleanArray(raw.iter().map(|&v| v != 0).collect()))
+            }
+            data_type_t_DATA_TYPE_BYTE_ARRAY => {
+                let mut p: *mut illumos_nvpair_sys::uchar_t = std::ptr::null_mut();
+                let mut n: uint_t = 0;
+                check_rc(
+                    nvpair_value_byte_array(nvp, &mut p, &mut n),
+                    pair_name,
+                    dtype,
+                )?;
+                Ok(NvValue::ByteArray(array_to_vec(p, n, pair_name, dtype)?))
+            }
+            data_type_t_DATA_TYPE_INT8_ARRAY => {
+                let mut p: *mut i8 = std::ptr::null_mut();
+                let mut n: uint_t = 0;
+                check_rc(
+                    nvpair_value_int8_array(nvp, &mut p, &mut n),
+                    pair_name,
+                    dtype,
+                )?;
+                Ok(NvValue::Int8Array(array_to_vec(p, n, pair_name, dtype)?))
+            }
+            data_type_t_DATA_TYPE_UINT8_ARRAY => {
+                let mut p: *mut u8 = std::ptr::null_mut();
+                let mut n: uint_t = 0;
+                check_rc(
+                    nvpair_value_uint8_array(nvp, &mut p, &mut n),
+                    pair_name,
+                    dtype,
+                )?;
+                Ok(NvValue::UInt8Array(array_to_vec(p, n, pair_name, dtype)?))
+            }
+            data_type_t_DATA_TYPE_INT16_ARRAY => {
+                let mut p: *mut i16 = std::ptr::null_mut();
+                let mut n: uint_t = 0;
+                check_rc(
+                    nvpair_value_int16_array(nvp, &mut p, &mut n),
+                    pair_name,
+                    dtype,
+                )?;
+                Ok(NvValue::Int16Array(array_to_vec(p, n, pair_name, dtype)?))
+            }
+            data_type_t_DATA_TYPE_UINT16_ARRAY => {
+                let mut p: *mut u16 = std::ptr::null_mut();
+                let mut n: uint_t = 0;
+                check_rc(
+                    nvpair_value_uint16_array(nvp, &mut p, &mut n),
+                    pair_name,
+                    dtype,
+                )?;
+                Ok(NvValue::UInt16Array(array_to_vec(p, n, pair_name, dtype)?))
+            }
+            data_type_t_DATA_TYPE_INT32_ARRAY => {
+                let mut p: *mut i32 = std::ptr::null_mut();
+                let mut n: uint_t = 0;
+                check_rc(
+                    nvpair_value_int32_array(nvp, &mut p, &mut n),
+                    pair_name,
+                    dtype,
+                )?;
+                Ok(NvValue::Int32Array(array_to_vec(p, n, pair_name, dtype)?))
+            }
+            data_type_t_DATA_TYPE_UINT32_ARRAY => {
+                let mut p: *mut u32 = std::ptr::null_mut();
+                let mut n: uint_t = 0;
+                check_rc(
+                    nvpair_value_uint32_array(nvp, &mut p, &mut n),
+                    pair_name,
+                    dtype,
+                )?;
+                Ok(NvValue::UInt32Array(array_to_vec(p, n, pair_name, dtype)?))
+            }
+            data_type_t_DATA_TYPE_INT64_ARRAY => {
+                let mut p: *mut i64 = std::ptr::null_mut();
+                let mut n: uint_t = 0;
+                check_rc(
+                    nvpair_value_int64_array(nvp, &mut p, &mut n),
+                    pair_name,
+                    dtype,
+                )?;
+                Ok(NvValue::Int64Array(array_to_vec(p, n, pair_name, dtype)?))
+            }
+            data_type_t_DATA_TYPE_UINT64_ARRAY => {
+                let mut p: *mut u64 = std::ptr::null_mut();
+                let mut n: uint_t = 0;
+                check_rc(
+                    nvpair_value_uint64_array(nvp, &mut p, &mut n),
+                    pair_name,
+                    dtype,
+                )?;
+                Ok(NvValue::UInt64Array(array_to_vec(p, n, pair_name, dtype)?))
+            }
+            data_type_t_DATA_TYPE_STRING_ARRAY => {
+                let mut p: *mut *mut c_char = std::ptr::null_mut();
+                let mut n: uint_t = 0;
+                check_rc(
+                    nvpair_value_string_array(nvp, &mut p, &mut n),
+                    pair_name,
+                    dtype,
+                )?;
+                let ptrs = array_to_vec(p as *const *mut c_char, n, pair_name, dtype)?;
+                let mut strings = Vec::with_capacity(ptrs.len());
+                for &s in &ptrs {
+                    if s.is_null() {
+                        return Err(NvError::NullPointer {
+                            pair_name: pair_name.to_owned(),
+                            type_code: dtype,
+                        });
+                    }
+                    strings.push(CStr::from_ptr(s).to_string_lossy().into_owned());
+                }
+                Ok(NvValue::StringArray(strings))
+            }
+            data_type_t_DATA_TYPE_NVLIST_ARRAY => {
+                let mut p: *mut *mut nvlist_t = std::ptr::null_mut();
+                let mut n: uint_t = 0;
+                check_rc(
+                    nvpair_value_nvlist_array(nvp, &mut p, &mut n),
+                    pair_name,
+                    dtype,
+                )?;
+                let ptrs = array_to_vec(p as *const *mut nvlist_t, n, pair_name, dtype)?;
+                let mut lists = Vec::with_capacity(ptrs.len());
+                for &nvl in &ptrs {
+                    if nvl.is_null() {
+                        return Err(NvError::NullPointer {
+                            pair_name: pair_name.to_owned(),
+                            type_code: dtype,
+                        });
+                    }
+                    lists.push(nvlist_to_rust(nvl)?);
+                }
+                Ok(NvValue::NvListArray(lists))
+            }
+            other => Ok(NvValue::Unknown { type_code: other }),
         }
-        other => Ok(NvValue::Unknown { type_code: other }),
     }
-}}
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ffi::CString;
     use illumos_nvpair_sys::{
-        boolean_t, nvlist_add_boolean, nvlist_add_boolean_array,
-        nvlist_add_boolean_value, nvlist_add_byte, nvlist_add_byte_array,
-        nvlist_add_double, nvlist_add_hrtime, nvlist_add_int8,
-        nvlist_add_int8_array, nvlist_add_int16, nvlist_add_int16_array,
-        nvlist_add_int32, nvlist_add_int32_array, nvlist_add_int64,
-        nvlist_add_int64_array, nvlist_add_nvlist, nvlist_add_nvlist_array,
-        nvlist_add_string, nvlist_add_string_array, nvlist_add_uint8,
-        nvlist_add_uint8_array, nvlist_add_uint16, nvlist_add_uint16_array,
-        nvlist_add_uint32, nvlist_add_uint32_array, nvlist_add_uint64,
-        nvlist_add_uint64_array, nvlist_alloc, nvlist_free, NV_UNIQUE_NAME,
+        NV_UNIQUE_NAME, boolean_t, nvlist_add_boolean, nvlist_add_boolean_array,
+        nvlist_add_boolean_value, nvlist_add_byte, nvlist_add_byte_array, nvlist_add_double,
+        nvlist_add_hrtime, nvlist_add_int8, nvlist_add_int8_array, nvlist_add_int16,
+        nvlist_add_int16_array, nvlist_add_int32, nvlist_add_int32_array, nvlist_add_int64,
+        nvlist_add_int64_array, nvlist_add_nvlist, nvlist_add_nvlist_array, nvlist_add_string,
+        nvlist_add_string_array, nvlist_add_uint8, nvlist_add_uint8_array, nvlist_add_uint16,
+        nvlist_add_uint16_array, nvlist_add_uint32, nvlist_add_uint32_array, nvlist_add_uint64,
+        nvlist_add_uint64_array, nvlist_alloc, nvlist_free,
     };
+    use std::ffi::CString;
 
     /// RAII wrapper around a C nvlist for test construction.
     struct NvListBuilder {
@@ -479,99 +545,77 @@ mod tests {
         fn add_boolean_value(&self, name: &str, val: bool) -> &Self {
             let cname = CString::new(name).unwrap();
             let cval: boolean_t = if val { 1 } else { 0 };
-            let rc = unsafe {
-                nvlist_add_boolean_value(self.ptr, cname.as_ptr(), cval)
-            };
+            let rc = unsafe { nvlist_add_boolean_value(self.ptr, cname.as_ptr(), cval) };
             assert_eq!(rc, 0, "nvlist_add_boolean_value failed for {name}");
             self
         }
 
         fn add_byte(&self, name: &str, val: u8) -> &Self {
             let cname = CString::new(name).unwrap();
-            let rc = unsafe {
-                nvlist_add_byte(self.ptr, cname.as_ptr(), val)
-            };
+            let rc = unsafe { nvlist_add_byte(self.ptr, cname.as_ptr(), val) };
             assert_eq!(rc, 0, "nvlist_add_byte failed for {name}");
             self
         }
 
         fn add_int8(&self, name: &str, val: i8) -> &Self {
             let cname = CString::new(name).unwrap();
-            let rc = unsafe {
-                nvlist_add_int8(self.ptr, cname.as_ptr(), val)
-            };
+            let rc = unsafe { nvlist_add_int8(self.ptr, cname.as_ptr(), val) };
             assert_eq!(rc, 0, "nvlist_add_int8 failed for {name}");
             self
         }
 
         fn add_uint8(&self, name: &str, val: u8) -> &Self {
             let cname = CString::new(name).unwrap();
-            let rc = unsafe {
-                nvlist_add_uint8(self.ptr, cname.as_ptr(), val)
-            };
+            let rc = unsafe { nvlist_add_uint8(self.ptr, cname.as_ptr(), val) };
             assert_eq!(rc, 0, "nvlist_add_uint8 failed for {name}");
             self
         }
 
         fn add_int16(&self, name: &str, val: i16) -> &Self {
             let cname = CString::new(name).unwrap();
-            let rc = unsafe {
-                nvlist_add_int16(self.ptr, cname.as_ptr(), val)
-            };
+            let rc = unsafe { nvlist_add_int16(self.ptr, cname.as_ptr(), val) };
             assert_eq!(rc, 0, "nvlist_add_int16 failed for {name}");
             self
         }
 
         fn add_uint16(&self, name: &str, val: u16) -> &Self {
             let cname = CString::new(name).unwrap();
-            let rc = unsafe {
-                nvlist_add_uint16(self.ptr, cname.as_ptr(), val)
-            };
+            let rc = unsafe { nvlist_add_uint16(self.ptr, cname.as_ptr(), val) };
             assert_eq!(rc, 0, "nvlist_add_uint16 failed for {name}");
             self
         }
 
         fn add_int32(&self, name: &str, val: i32) -> &Self {
             let cname = CString::new(name).unwrap();
-            let rc = unsafe {
-                nvlist_add_int32(self.ptr, cname.as_ptr(), val)
-            };
+            let rc = unsafe { nvlist_add_int32(self.ptr, cname.as_ptr(), val) };
             assert_eq!(rc, 0, "nvlist_add_int32 failed for {name}");
             self
         }
 
         fn add_uint32(&self, name: &str, val: u32) -> &Self {
             let cname = CString::new(name).unwrap();
-            let rc = unsafe {
-                nvlist_add_uint32(self.ptr, cname.as_ptr(), val)
-            };
+            let rc = unsafe { nvlist_add_uint32(self.ptr, cname.as_ptr(), val) };
             assert_eq!(rc, 0, "nvlist_add_uint32 failed for {name}");
             self
         }
 
         fn add_int64(&self, name: &str, val: i64) -> &Self {
             let cname = CString::new(name).unwrap();
-            let rc = unsafe {
-                nvlist_add_int64(self.ptr, cname.as_ptr(), val)
-            };
+            let rc = unsafe { nvlist_add_int64(self.ptr, cname.as_ptr(), val) };
             assert_eq!(rc, 0, "nvlist_add_int64 failed for {name}");
             self
         }
 
         fn add_uint64(&self, name: &str, val: u64) -> &Self {
             let cname = CString::new(name).unwrap();
-            let rc = unsafe {
-                nvlist_add_uint64(self.ptr, cname.as_ptr(), val)
-            };
+            let rc = unsafe { nvlist_add_uint64(self.ptr, cname.as_ptr(), val) };
             assert_eq!(rc, 0, "nvlist_add_uint64 failed for {name}");
             self
         }
 
         fn add_double(&self, name: &str, val: f64) -> &Self {
             let cname = CString::new(name).unwrap();
-            let rc = unsafe {
-                nvlist_add_double(self.ptr, cname.as_ptr(), val)
-            };
+            let rc = unsafe { nvlist_add_double(self.ptr, cname.as_ptr(), val) };
             assert_eq!(rc, 0, "nvlist_add_double failed for {name}");
             self
         }
@@ -579,35 +623,28 @@ mod tests {
         fn add_string(&self, name: &str, val: &str) -> &Self {
             let cname = CString::new(name).unwrap();
             let cval = CString::new(val).unwrap();
-            let rc = unsafe {
-                nvlist_add_string(self.ptr, cname.as_ptr(), cval.as_ptr())
-            };
+            let rc = unsafe { nvlist_add_string(self.ptr, cname.as_ptr(), cval.as_ptr()) };
             assert_eq!(rc, 0, "nvlist_add_string failed for {name}");
             self
         }
 
         fn add_hrtime(&self, name: &str, val: i64) -> &Self {
             let cname = CString::new(name).unwrap();
-            let rc = unsafe {
-                nvlist_add_hrtime(self.ptr, cname.as_ptr(), val)
-            };
+            let rc = unsafe { nvlist_add_hrtime(self.ptr, cname.as_ptr(), val) };
             assert_eq!(rc, 0, "nvlist_add_hrtime failed for {name}");
             self
         }
 
         fn add_nvlist(&self, name: &str, child: &NvListBuilder) -> &Self {
             let cname = CString::new(name).unwrap();
-            let rc = unsafe {
-                nvlist_add_nvlist(self.ptr, cname.as_ptr(), child.ptr)
-            };
+            let rc = unsafe { nvlist_add_nvlist(self.ptr, cname.as_ptr(), child.ptr) };
             assert_eq!(rc, 0, "nvlist_add_nvlist failed for {name}");
             self
         }
 
         fn add_boolean_array(&self, name: &str, vals: &[bool]) -> &Self {
             let cname = CString::new(name).unwrap();
-            let cvals: Vec<boolean_t> =
-                vals.iter().map(|&v| if v { 1 } else { 0 }).collect();
+            let cvals: Vec<boolean_t> = vals.iter().map(|&v| if v { 1 } else { 0 }).collect();
             let rc = unsafe {
                 nvlist_add_boolean_array(
                     self.ptr,
@@ -748,10 +785,8 @@ mod tests {
 
         fn add_string_array(&self, name: &str, vals: &[&str]) -> &Self {
             let cname = CString::new(name).unwrap();
-            let cvals: Vec<CString> =
-                vals.iter().map(|s| CString::new(*s).unwrap()).collect();
-            let ptrs: Vec<*mut c_char> =
-                cvals.iter().map(|c| c.as_ptr() as *mut c_char).collect();
+            let cvals: Vec<CString> = vals.iter().map(|s| CString::new(*s).unwrap()).collect();
+            let ptrs: Vec<*mut c_char> = cvals.iter().map(|c| c.as_ptr() as *mut c_char).collect();
             let rc = unsafe {
                 nvlist_add_string_array(
                     self.ptr,
@@ -764,14 +799,9 @@ mod tests {
             self
         }
 
-        fn add_nvlist_array(
-            &self,
-            name: &str,
-            children: &[&NvListBuilder],
-        ) -> &Self {
+        fn add_nvlist_array(&self, name: &str, children: &[&NvListBuilder]) -> &Self {
             let cname = CString::new(name).unwrap();
-            let mut ptrs: Vec<*mut nvlist_t> =
-                children.iter().map(|c| c.ptr).collect();
+            let mut ptrs: Vec<*mut nvlist_t> = children.iter().map(|c| c.ptr).collect();
             let rc = unsafe {
                 nvlist_add_nvlist_array(
                     self.ptr,
@@ -806,10 +836,7 @@ mod tests {
         let nvl = NvListBuilder::new();
         nvl.add_boolean_value("enabled", true);
         let result = nvl.to_rust();
-        assert_eq!(
-            result.lookup("enabled"),
-            Some(&NvValue::BooleanValue(true))
-        );
+        assert_eq!(result.lookup("enabled"), Some(&NvValue::BooleanValue(true)));
     }
 
     #[test]
@@ -922,10 +949,7 @@ mod tests {
         let nvl = NvListBuilder::new();
         nvl.add_hrtime("ts", 123_456_789);
         let result = nvl.to_rust();
-        assert_eq!(
-            result.lookup("ts"),
-            Some(&NvValue::Hrtime(123_456_789))
-        );
+        assert_eq!(result.lookup("ts"), Some(&NvValue::Hrtime(123_456_789)));
     }
 
     // ---- Array type tests ----
@@ -1088,7 +1112,8 @@ mod tests {
     fn test_empty_nvlist() {
         let nvl = NvListBuilder::new();
         let result = nvl.to_rust();
-        assert!(result.pairs.is_empty());
+        assert!(result.is_empty());
+        assert_eq!(result.len(), 0);
     }
 
     #[test]
@@ -1101,18 +1126,20 @@ mod tests {
         nvl.add_double("fifth", 2.5);
 
         let result = nvl.to_rust();
-        assert_eq!(result.pairs.len(), 5);
-        assert_eq!(result.pairs[0].0, "first");
-        assert_eq!(result.pairs[1].0, "second");
-        assert_eq!(result.pairs[2].0, "third");
-        assert_eq!(result.pairs[3].0, "fourth");
-        assert_eq!(result.pairs[4].0, "fifth");
+        assert_eq!(result.len(), 5);
 
-        assert_eq!(result.pairs[0].1, NvValue::String("a".into()));
-        assert_eq!(result.pairs[1].1, NvValue::Int32(42));
-        assert_eq!(result.pairs[2].1, NvValue::Boolean);
-        assert_eq!(result.pairs[3].1, NvValue::UInt64(999));
-        assert_eq!(result.pairs[4].1, NvValue::Double(2.5));
+        let pairs: Vec<_> = result.iter().collect();
+        assert_eq!(pairs[0].0, "first");
+        assert_eq!(pairs[1].0, "second");
+        assert_eq!(pairs[2].0, "third");
+        assert_eq!(pairs[3].0, "fourth");
+        assert_eq!(pairs[4].0, "fifth");
+
+        assert_eq!(*pairs[0].1, NvValue::String("a".into()));
+        assert_eq!(*pairs[1].1, NvValue::Int32(42));
+        assert_eq!(*pairs[2].1, NvValue::Boolean);
+        assert_eq!(*pairs[3].1, NvValue::UInt64(999));
+        assert_eq!(*pairs[4].1, NvValue::Double(2.5));
     }
 
     #[test]
@@ -1125,10 +1152,7 @@ mod tests {
 
         let result = outer.to_rust();
         if let Some(NvValue::NvList(child)) = result.lookup("child") {
-            assert_eq!(
-                child.lookup("key"),
-                Some(&NvValue::String("value".into()))
-            );
+            assert_eq!(child.lookup("key"), Some(&NvValue::String("value".into())));
         } else {
             panic!("expected nested NvList");
         }
@@ -1148,10 +1172,7 @@ mod tests {
         let result = outer.to_rust();
         if let Some(NvValue::NvList(mid)) = result.lookup("middle") {
             if let Some(NvValue::NvList(inn)) = mid.lookup("inner") {
-                assert_eq!(
-                    inn.lookup("depth"),
-                    Some(&NvValue::String("three".into()))
-                );
+                assert_eq!(inn.lookup("depth"), Some(&NvValue::String("three".into())));
             } else {
                 panic!("expected inner NvList");
             }
