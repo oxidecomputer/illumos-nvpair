@@ -219,7 +219,6 @@ pub enum NvValue {
     },
 }
 
-
 /// Check a return code from a `nvpair_value_*` call, converting
 /// non-zero into an `NvError`.
 fn check_rc(rc: i32, pair_name: &str, type_code: data_type_t) -> Result<(), NvError> {
