@@ -110,6 +110,10 @@ impl NvList {
     /// replaced with U+FFFD (`\u{FFFD}`). This means a `lookup()` call
     /// will not match the original name if it contained non-UTF-8 bytes.
     ///
+    /// This deep-copies the nvlist contents and does not take ownership
+    /// of the pointer. If you instead want a RAII handle that owns and
+    /// frees the underlying C nvlist, see [`OwnedNvList`].
+    ///
     /// # Safety
     ///
     /// `nvl` must be a valid, non-null pointer to an nvlist. The nvlist is
@@ -177,6 +181,65 @@ impl<'a> IntoIterator for &'a NvList {
 
     fn into_iter(self) -> Self::IntoIter {
         self.pairs.iter().map(|(n, v)| (n.as_str(), v))
+    }
+}
+
+/// Owning RAII handle to a live `nvlist_t` allocated by libnvpair (or by any
+/// illumos API that returns an `nvlist_t *` with caller-frees-it semantics).
+///
+/// Complements [`NvList`], which is a deep-copied snapshot for inspection.
+/// Use `OwnedNvList` when you need to:
+///
+/// - own a live nvlist with RAII cleanup, or
+/// - pass the raw pointer back into a C API that takes `nvlist_t *`.
+///
+/// On drop, the underlying nvlist is freed via `nvlist_free`.
+#[derive(Debug)]
+pub struct OwnedNvList {
+    raw: *mut nvlist_t,
+}
+
+impl OwnedNvList {
+    /// Take ownership of a raw `nvlist_t *`.
+    ///
+    /// # Safety
+    ///
+    /// - `raw` must be non-null and point to a valid nvlist allocated such
+    ///   that it can be freed with `nvlist_free`.
+    /// - Ownership is transferred to the returned `OwnedNvList`. The caller
+    ///   must not free the pointer or wrap it in another `OwnedNvList`.
+    pub unsafe fn from_raw(raw: *mut nvlist_t) -> Self {
+        debug_assert!(!raw.is_null(), "OwnedNvList::from_raw called with null");
+        Self { raw }
+    }
+
+    /// Borrow the underlying raw pointer.
+    ///
+    /// Valid until `self` is dropped. The caller must not free it.
+    pub fn as_raw(&self) -> *mut nvlist_t {
+        self.raw
+    }
+
+    /// Relinquish ownership and return the raw pointer.
+    ///
+    /// The caller is now responsible for eventually freeing the nvlist,
+    /// typically by passing it to a C API that takes ownership or by
+    /// re-wrapping it via [`OwnedNvList::from_raw`].
+    pub fn into_raw(self) -> *mut nvlist_t {
+        let raw = self.raw;
+        std::mem::forget(self);
+        raw
+    }
+
+    /// Deep-copy the nvlist contents into a pure-Rust [`NvList`] for inspection.
+    pub fn inspect(&self) -> Result<NvList, NvError> {
+        unsafe { NvList::from_raw(self.raw) }
+    }
+}
+
+impl Drop for OwnedNvList {
+    fn drop(&mut self) {
+        unsafe { illumos_nvpair_sys::nvlist_free(self.raw) };
     }
 }
 
@@ -815,6 +878,17 @@ mod tests {
         }
     }
 
+    impl NvListBuilder {
+        /// Relinquish ownership and return the raw nvlist pointer. The
+        /// caller is then responsible for freeing it (or transferring
+        /// ownership to something that will).
+        fn take_ptr(self) -> *mut nvlist_t {
+            let ptr = self.ptr;
+            std::mem::forget(self);
+            ptr
+        }
+    }
+
     impl Drop for NvListBuilder {
         fn drop(&mut self) {
             unsafe { nvlist_free(self.ptr) }
@@ -1202,5 +1276,62 @@ mod tests {
             Some(&NvValue::String("yes".into()))
         );
         assert_eq!(result.lookup("missing"), None);
+    }
+
+    // ---- OwnedNvList tests ----
+
+    #[test]
+    fn test_owned_nvlist_drop_frees() {
+        let b = NvListBuilder::new();
+        b.add_string("name", "value");
+        let raw = b.take_ptr();
+        let owned = unsafe { OwnedNvList::from_raw(raw) };
+        drop(owned);
+    }
+
+    #[test]
+    fn test_owned_nvlist_as_raw() {
+        let b = NvListBuilder::new();
+        let raw = b.take_ptr();
+        let owned = unsafe { OwnedNvList::from_raw(raw) };
+        assert_eq!(owned.as_raw(), raw);
+    }
+
+    #[test]
+    fn test_owned_nvlist_into_raw_does_not_free() {
+        let b = NvListBuilder::new();
+        b.add_string("name", "value");
+        let raw = b.take_ptr();
+        let owned = unsafe { OwnedNvList::from_raw(raw) };
+        let recovered = owned.into_raw();
+        assert_eq!(recovered, raw);
+        // The nvlist is still live; free it manually.
+        unsafe { nvlist_free(recovered) };
+    }
+
+    #[test]
+    fn test_owned_nvlist_inspect() {
+        let b = NvListBuilder::new();
+        b.add_string("greeting", "hello");
+        b.add_int32("count", 42);
+        let raw = b.take_ptr();
+        let owned = unsafe { OwnedNvList::from_raw(raw) };
+        let inspected = owned.inspect().expect("inspect failed");
+        assert_eq!(
+            inspected.lookup("greeting"),
+            Some(&NvValue::String("hello".into()))
+        );
+        assert_eq!(inspected.lookup("count"), Some(&NvValue::Int32(42)));
+    }
+
+    #[test]
+    fn test_owned_nvlist_inspect_repeated() {
+        let b = NvListBuilder::new();
+        b.add_string("k", "v");
+        let raw = b.take_ptr();
+        let owned = unsafe { OwnedNvList::from_raw(raw) };
+        let first = owned.inspect().unwrap();
+        let second = owned.inspect().unwrap();
+        assert_eq!(first, second);
     }
 }
